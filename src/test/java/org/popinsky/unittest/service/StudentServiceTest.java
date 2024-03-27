@@ -16,6 +16,7 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.BDDMockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class StudentServiceTest {
@@ -34,7 +35,7 @@ class StudentServiceTest {
     private StudentRepository studentRepository;
     private StudentService studentService;
 
-    @BeforeEach
+	@BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
         studentService = new StudentService(studentRepository);
@@ -72,11 +73,26 @@ class StudentServiceTest {
 
         //then
         ArgumentCaptor<Student>studentArgumentCaptor = ArgumentCaptor.forClass(Student.class);
-        verify(studentRepository).save(studentArgumentCaptor.capture());
+        verify(studentRepository)
+                .save(studentArgumentCaptor.capture());
 
         Student capturedStudent = studentArgumentCaptor.getValue();
 
         assertThat(capturedStudent).isEqualTo(mockStudent);
+    }
+
+    @Test
+    void willThrowWhenEmailTaken() {
+        //when
+        given(studentRepository.selectExistsEmail(mockStudent.getEmail()))
+                .willReturn(true);
+
+        //then and when
+        assertThatThrownBy(
+                () -> studentService.addStudent(mockStudent))
+                .isInstanceOf(BadRequestException.class)
+                .hasMessageContaining("Email" + mockStudent.getEmail() + " taken");
+
     }
 
     @Test
@@ -86,7 +102,10 @@ class StudentServiceTest {
 
         //then and when
         assertThatThrownBy(() -> studentService.deletedStudentById(studentId))
-                .isInstanceOf(StudentNotFoundException.class).hasMessageContaining("Student with id : "+ studentId + " does not exists");
+                .isInstanceOf(StudentNotFoundException.class)
+                .hasMessageContaining("Student with id : "+ studentId + " does not exists");
+
+        verify(studentRepository,never()).save(mockStudent);
     }
 
     @Test
